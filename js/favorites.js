@@ -1,3 +1,5 @@
+import { GithubUser } from "./GithubUser.js"
+
 // classe que vai conter a logica dos dados
 
 export class Favorites {
@@ -5,28 +7,49 @@ export class Favorites {
     this.root = document.querySelector(root)
 
     this.load()
+
+    GithubUser.search('kauednar').then(user => console.log(user))  
   }
 
   load() {
-    this.entries = [
-      {
-        login: 'kauednar',
-        name: "Kaue Ednar",
-        public_repos: '10',
-        followers: '2'
-        },
-      {
-        login: 'juanrezende',
-        name: "Juan Rezende",
-        public_repos: '32',
-        followers: '20'
-        }
-    ]
+    this.entries = JSON.parse(localStorage.getItem('@github-favorites:')) || []
+  }
+
+  save() {
+    localStorage.setItem('@github-favorites:', JSON.stringify(this.entries))
+  }
+
+  async add(username) {
+    try {
+
+      const userExists = this.entries.find(entry => entry.login === username)
+
+      if(userExists) {
+        throw new Error('Usuario ja cadastrado')
+      }
+
+      const user = await GithubUser.search(username)
+
+      if(user.login === undefined) {
+        throw new Error('Usuario não encontrado!')
+      }
+
+      this.entries = [user, ...this.entries]
+      this.update()
+      this.save()
+
+    } catch(error) {
+      alert(error.message)
+    }
   }
 
   delete(user) {
-    this.entries = this.entries
+    const filteredEntries = this.entries
     .filter(entry => entry.login !== user.login)
+
+    this.entries = filteredEntries
+    this.update()
+    this.save()
   }
 }
 
@@ -39,6 +62,16 @@ export class FavoritesView extends Favorites {
     this.tbody = this.root.querySelector('table tbody')
   
     this.update()
+    this.onadd()
+  }
+
+  onadd() {
+    const addButton = this.root.querySelector('.search button')
+    addButton.onclick = () => {
+      const { value } = this.root.querySelector('.search input')
+
+      this.add(value)
+    }
   }
 
   update() { 
@@ -49,6 +82,7 @@ export class FavoritesView extends Favorites {
 
       row.querySelector('.user img').src = `https://github.com/${user.login}.png`
       row.querySelector('.user img').alt = `Foto de ${user.name}`
+      row.querySelector('.user a').href = `https://gitub.com/${user.login}`
       row.querySelector('.user p').textContent = user.name
       row.querySelector('.user span').textContent = user.login
       row.querySelector('.repositories').textContent = user.public_repos
